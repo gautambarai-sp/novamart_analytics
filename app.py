@@ -1,6 +1,6 @@
 # ======================================================
 # NovaMart Omnichannel Executive Dashboard
-# Cloud-safe | Single-file | Production-ready
+# Streamlit Cloud Safe | Single File | No GeoJSON
 # ======================================================
 
 import streamlit as st
@@ -8,7 +8,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.metrics import roc_curve, auc, confusion_matrix
-import json
 
 # ---------------------------
 # PAGE CONFIG
@@ -29,11 +28,6 @@ st.caption("Clear, simple insights for leadership decisions")
 def load_csv(path):
     return pd.read_csv(path)
 
-@st.cache_data
-def load_geojson(path):
-    with open(path, "r") as f:
-        return json.load(f)
-
 # ---------------------------
 # LOAD DATA
 # ---------------------------
@@ -47,8 +41,6 @@ corr = load_csv("data/correlation_matrix.csv")
 leads = load_csv("data/lead_scoring_results.csv")
 learning = load_csv("data/learning_curve.csv")
 features = load_csv("data/feature_importance.csv")
-
-india_geojson = load_geojson("data/india_states.geojson")
 
 # ---------------------------
 # SIDEBAR NAVIGATION
@@ -77,7 +69,10 @@ if page == "Executive Overview":
 
     col1.metric("Total Revenue", f"₹{campaign.revenue.sum():,.0f}")
     col2.metric("Conversions", f"{campaign.conversions.sum():,.0f}")
-    col3.metric("ROAS", f"{campaign.revenue.sum() / campaign.spend.sum():.2f}")
+    col3.metric(
+        "ROAS",
+        f"{campaign.revenue.sum() / campaign.spend.sum():.2f}"
+    )
     col4.metric("Customers", customers.customer_id.nunique())
 
     st.divider()
@@ -129,7 +124,12 @@ elif page == "Customer Insights":
     bins = st.slider("Age Bin Size", 5, 20, 10)
 
     st.plotly_chart(
-        px.histogram(customers, x="age", nbins=bins, title="Age Distribution"),
+        px.histogram(
+            customers,
+            x="age",
+            nbins=bins,
+            title="Customer Age Distribution"
+        ),
         use_container_width=True
     )
 
@@ -162,7 +162,10 @@ elif page == "Product Performance":
     st.header("📦 Product Performance")
 
     products["profit_margin"] = (
-        products["profit_margin"].astype(str).str.replace("%", "").astype(float)
+        products["profit_margin"]
+        .astype(str)
+        .str.replace("%", "")
+        .astype(float)
     )
 
     fig = px.treemap(
@@ -176,7 +179,7 @@ elif page == "Product Performance":
     st.plotly_chart(fig, use_container_width=True)
 
 # ======================================================
-# 5. GEOGRAPHIC ANALYSIS (OFFLINE MAP)
+# 5. GEOGRAPHIC ANALYSIS (BAR-BASED, CLOUD SAFE)
 # ======================================================
 elif page == "Geographic Analysis":
 
@@ -187,18 +190,18 @@ elif page == "Geographic Analysis":
         ["revenue", "customers", "market_penetration", "yoy_growth"]
     )
 
-    fig = px.choropleth(
-        geo,
-        geojson=india_geojson,
-        locations="state",
-        featureidkey="properties.ST_NM",
-        color=metric,
-        color_continuous_scale="Blues",
-        title="India State-wise Performance"
+    fig = px.bar(
+        geo.sort_values(metric, ascending=False),
+        x=metric,
+        y="state",
+        orientation="h",
+        title="State-wise Performance Comparison"
     )
-
-    fig.update_geos(fitbounds="locations", visible=False)
     st.plotly_chart(fig, use_container_width=True)
+
+    st.info(
+        "📌 Bar comparison used instead of map for better clarity and cloud stability."
+    )
 
 # ======================================================
 # 6. ATTRIBUTION & FUNNEL
@@ -207,7 +210,10 @@ elif page == "Attribution & Funnel":
 
     st.header("🔄 Attribution & Funnel")
 
-    model = st.selectbox("Attribution Model", ["first_touch", "last_touch", "linear"])
+    model = st.selectbox(
+        "Attribution Model",
+        ["first_touch", "last_touch", "linear"]
+    )
 
     st.plotly_chart(
         px.pie(
@@ -246,7 +252,10 @@ elif page == "ML Model Evaluation":
 
     threshold = st.slider("Prediction Threshold", 0.1, 0.9, 0.5)
 
-    leads["predicted"] = (leads["predicted_probability"] >= threshold).astype(int)
+    leads["predicted"] = (
+        leads["predicted_probability"] >= threshold
+    ).astype(int)
+
     cm = confusion_matrix(leads.actual_converted, leads.predicted)
 
     st.plotly_chart(
@@ -254,13 +263,21 @@ elif page == "ML Model Evaluation":
         use_container_width=True
     )
 
-    fpr, tpr, _ = roc_curve(leads.actual_converted, leads.predicted_probability)
+    fpr, tpr, _ = roc_curve(
+        leads.actual_converted,
+        leads.predicted_probability
+    )
     roc_auc = auc(fpr, tpr)
 
     roc_fig = go.Figure()
-    roc_fig.add_trace(go.Scatter(x=fpr, y=tpr, name=f"AUC = {roc_auc:.2f}"))
-    roc_fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", name="Random"))
+    roc_fig.add_trace(
+        go.Scatter(x=fpr, y=tpr, name=f"AUC = {roc_auc:.2f}")
+    )
+    roc_fig.add_trace(
+        go.Scatter(x=[0, 1], y=[0, 1], mode="lines", name="Random")
+    )
     roc_fig.update_layout(title="ROC Curve")
+
     st.plotly_chart(roc_fig, use_container_width=True)
 
     st.plotly_chart(
